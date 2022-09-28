@@ -63,6 +63,7 @@ class Profile:
         self.stratz_data = None
         self.steam_data = None
         self._n_friends = -1
+        self._n_games_owned = -1
         self.fetch()
 
     @property
@@ -82,7 +83,7 @@ class Profile:
         return self.stratz_data.steamAccount.seasonRank
 
     @property
-    def played(self) -> int:
+    def n_played(self) -> int:
         return self.stratz_data.matchCount
 
     @property
@@ -125,7 +126,7 @@ class Profile:
         return self.steam_data.profilestate == 1
 
     @property
-    def n_friends(self) -> bool:
+    def n_friends(self) -> int or None:
         if self._n_friends == -1:
             if not self.steam_anonymous:
                 data = steam_webapi.get(
@@ -139,13 +140,45 @@ class Profile:
                     }
                 )
                 self._n_friends = len(data['friendslist']['friends'])
-            self._n_friends = None
+            else:
+                self._n_friends = None
         return self._n_friends
+
+    @property
+    def default_pfp(self) -> bool:
+        #check if profile picture matches default
+        if self.steam_data.avatarfull == 'https://avatars.akamai.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg':
+            #'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/fe/fece7b7c3c0e0e9e9d7b7c3c0e0e9e9d7b7c3c0e_full.jpg':
+            return True
+        return False
+
+    @property
+    def n_games_owned(self) -> int or None:
+        if self._n_games_owned == -1:
+            #if not self.steam_anonymous:
+            data = steam_webapi.get(
+                interface='IPlayerService',
+                method='GetOwnedGames',
+                version=1,
+                params={
+                    'key': STEAM_TOKEN,
+                    'steamid': self.steamID.as_64,
+                    'include_appinfo': 0,
+                    'include_played_free_games': 0,
+                    'format': 'json'
+                }
+            )
+            if 'games' in data['response']:
+                #self._n_games_owned = data['response']['game_count']
+                self._n_games_owned = len(data['response']['games'])
+            else:
+                self._n_games_owned = None
+        return self._n_games_owned
 
     def flags(self):
         flags = [
             'rank',
-            'played',
+            'n_played',
             'winrate',
             'dota_anonymous',
             'dota_level',
@@ -154,6 +187,8 @@ class Profile:
             'stratz_smurf',
             'steam_profile_set_up',
             'n_friends',
+            'default_pfp',
+            'n_games_owned',
         ]
         flags_dict = {flag: getattr(self, flag) for flag in flags}
         return flags_dict
@@ -241,6 +276,8 @@ if __name__ == '__main__':
         Profile(95251565),  # me
         Profile(89428432),  # P[A]conar
         Profile(1252911151), #some smurf
+        Profile(76561198853650108), #smurf no PFP
+        Profile(76561197987953741), #not smurf
     ]
 
     for p in players:
